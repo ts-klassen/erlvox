@@ -1,7 +1,9 @@
 erlvox
 =====
 
-An OTP library
+An Erlang library to use VOICEVOX
+
+https://voicevox.hiroshiba.jp/
 
 Build
 -----
