@@ -15,6 +15,27 @@ audio_query(Host, Speaker, Text) ->
   ]),
   request(Host, post, Uri).
 
+synthesis([Host|Hosts], Speaker, AudioQuery) ->
+  Pid = spawn(erlvox, synthesis, [async, self(), {[Host|Hosts], Speaker, AudioQuery}]),
+  receive
+    {Pid, Audio} -> {ok, Audio}
+  end;
+synthesis(async, Pid, {[], Speaker, AudioQuery}) ->
+  receive
+    {check, Host, true} ->
+      case synthesis(Host, Speaker, AudioQuery) of
+        {ok, Audio} -> Pid ! {self(), Audio};
+        {error, _} -> synthesis(async, Pid, {[], Speaker, AudioQuery})
+      end
+  end;
+synthesis(async, Pid, {[Host|Hosts], Speaker, AudioQuery}) ->
+  spawn(erlvox, synthesis, [check, self(), {Host, Speaker}]),
+  synthesis(async, Pid, {Hosts, Speaker, AudioQuery});
+synthesis(check, Pid, {Host, Speaker}) ->
+  Pid ! {check, Host, is_initialized_speaker(Host, Speaker)},
+  initialize_speaker(Host, Speaker),
+  Pid ! {check, Host, is_initialized_speaker(Host, Speaker)};
+
 synthesis(Host, Speaker, AudioQuery) ->
   Uri = voicevox_uri(<<"/synthesis?">>, [
     {speaker, Speaker},
