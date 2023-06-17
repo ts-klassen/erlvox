@@ -16,7 +16,7 @@ audio_query(Host, Speaker, Text) ->
   request(Host, post, Uri).
 
 synthesis([Host|Hosts], Speaker, AudioQuery) ->
-  Pid = spawn(erlvox, synthesis, [async, self(), {[Host|Hosts], Speaker, AudioQuery}]),
+  Pid = spawn(erlvox, synthesis, [async, self(), {shuffle([Host|Hosts]), Speaker, AudioQuery}]),
   receive
     {Pid, Audio} -> {ok, Audio}
   end;
@@ -147,3 +147,6 @@ request(throws, {Domain, Port}, post, {Uri, Body}) ->
 
 request(throws, Host, post, Uri) ->
   request(throws, Host, post, {Uri, <<"">>}).
+
+shuffle(List) ->
+  [X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- List])].
