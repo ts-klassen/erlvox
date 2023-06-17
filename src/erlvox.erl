@@ -15,30 +15,37 @@ audio_query(Host, Speaker, Text) ->
   ]),
   request(Host, post, Uri).
 
-synthesis([Host|Hosts], Speaker, AudioQuery) ->
-  Pid = spawn(erlvox, synthesis, [async, self(), {shuffle([Host|Hosts]), Speaker, AudioQuery}]),
+synthesis(Hosts, Speaker, AudioQuery) when is_list(Hosts) ->
+  Pid = spawn(erlvox, synthesis, [async, self(), {shuffle(Hosts), Speaker, AudioQuery, []}]),
   receive
+    {Pid, noAvailableServer} -> {error, noAvailableServer};
     {Pid, Audio} -> {ok, Audio}
   end;
-synthesis(async, Pid, {[], Speaker, AudioQuery}) ->
+synthesis(async, Pid, {[], Speaker, AudioQuery, []}) ->
+  Pid ! {self(), noAvailableServer};
+synthesis(async, Pid, {[], Speaker, AudioQuery, [CheckPid|Pids]}) ->
   receive
-    {check, Host, true} ->
+    {check, AnyPid, Host, true} ->
       case synthesis(Host, Speaker, AudioQuery) of
         {ok, Audio} -> Pid ! {self(), Audio};
-        {error, _} -> synthesis(async, Pid, {[], Speaker, AudioQuery})
-      end
+        {error, _} ->
+          self() ! {check, AnyPid, Host, false},
+          synthesis(async, Pid, {[], Speaker, AudioQuery, [CheckPid|Pids]})
+      end;
+    {check, CheckPid, _Host, false} ->
+      synthesis(async, Pid, {[], Speaker, AudioQuery, Pids})
   end;
-synthesis(async, Pid, {[Host|Hosts], Speaker, AudioQuery}) ->
-  spawn(erlvox, synthesis, [check, self(), {Host, Speaker}]),
-  synthesis(async, Pid, {Hosts, Speaker, AudioQuery});
+synthesis(async, Pid, {[Host|Hosts], Speaker, AudioQuery, Pids}) ->
+  CheckPid = spawn(erlvox, synthesis, [check, self(), {Host, Speaker}]),
+  synthesis(async, Pid, {Hosts, Speaker, AudioQuery, [CheckPid|Pids]});
 synthesis(check, Pid, {Host, Speaker}) ->
   IsAvailable = is_initialized_speaker(Host, Speaker),
   if
     IsAvailable ->
-      Pid ! {check, Host, true};
+      Pid ! {check, self(), Host, true};
     true -> % when IsAvailable is false
       initialize_speaker(Host, Speaker),
-      Pid ! {check, Host, is_initialized_speaker(Host, Speaker)}
+      Pid ! {check, self(), Host, is_initialized_speaker(Host, Speaker)}
   end;
 
 synthesis(Host, Speaker, AudioQuery) ->
