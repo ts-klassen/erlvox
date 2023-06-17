@@ -1,6 +1,6 @@
 -module(erlvox).
 
--export([version/1, speakers/1, audio_query/3, synthesis/3]).
+-export([version/1, speakers/1, audio_query/3, synthesis/3, initialize_speaker/2, initialize_speaker/3, is_initialized_speaker/2]).
 
 version(Host) ->
   request(Host, get, <<"/version">>).
@@ -22,6 +22,23 @@ synthesis(Host, Speaker, AudioQuery) ->
   ]),
   request(Host, post, {Uri, AudioQuery, audio}).
 
+initialize_speaker(Host, Speaker, SkipReinit) ->
+  Uri = voicevox_uri(<<"/initialize_speaker?">>, [
+    {speaker, Speaker},
+    {<<"skip_reinit">>, SkipReinit}
+  ]),
+  request(Host, post, {Uri, noContent}).
+initialize_speaker(Host, Speaker) ->
+  initialize_speaker(Host, Speaker, true).
+
+is_initialized_speaker(Host, Speaker) ->
+  Uri = voicevox_uri(<<"/is_initialized_speaker?">>, [
+    {speaker, Speaker}
+  ]),
+  case request(Host, get, Uri) of
+    {ok, true} -> true;
+    _ -> false
+  end.
 
 
 voicevox_uri(Uri, []) -> Uri;
@@ -76,6 +93,14 @@ request(throws, {Domain, Port}, post, {Uri, Body, audio}) ->
   {ok, Res} = gun:await_body(ConnPid, StreamRef),
   gun:close(ConnPid),
   Res;
+  
+request(throws, {Domain, Port}, post, {Uri, noContent}) ->
+  application:ensure_all_started(gun),
+  {ok, ConnPid} = gun:open(Domain, Port),
+  StreamRef = gun:post(ConnPid, Uri, []),
+  {response, fin, 204, _} = gun:await(ConnPid, StreamRef),
+  gun:close(ConnPid),
+  noContent;
 
 request(throws, {Domain, Port}, post, {Uri, Body}) ->
   application:ensure_all_started(gun),
