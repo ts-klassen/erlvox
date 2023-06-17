@@ -32,9 +32,14 @@ synthesis(async, Pid, {[Host|Hosts], Speaker, AudioQuery}) ->
   spawn(erlvox, synthesis, [check, self(), {Host, Speaker}]),
   synthesis(async, Pid, {Hosts, Speaker, AudioQuery});
 synthesis(check, Pid, {Host, Speaker}) ->
-  Pid ! {check, Host, is_initialized_speaker(Host, Speaker)},
-  initialize_speaker(Host, Speaker),
-  Pid ! {check, Host, is_initialized_speaker(Host, Speaker)};
+  IsAvailable = is_initialized_speaker(Host, Speaker),
+  if
+    IsAvailable ->
+      Pid ! {check, Host, true};
+    true -> % when IsAvailable is false
+      initialize_speaker(Host, Speaker),
+      Pid ! {check, Host, is_initialized_speaker(Host, Speaker)}
+  end;
 
 synthesis(Host, Speaker, AudioQuery) ->
   Uri = voicevox_uri(<<"/synthesis?">>, [
@@ -109,7 +114,11 @@ request(throws, {Domain, Port}, post, {Uri, Body, audio}) ->
     {<<"Content-Type">>, <<"application/json">>},
     {<<"accept">>, <<"audio/wav">>}
   ]),
-  ok = gun:data(ConnPid, StreamRef, fin, jsone:encode(Body)),
+  if
+    is_binary(Body) -> HttpBody = Body;
+    true -> HttpBody = jsone:encode(Body)
+  end,
+  ok = gun:data(ConnPid, StreamRef, fin, HttpBody),
   {response, nofin, 200, _} = gun:await(ConnPid, StreamRef),
   {ok, Res} = gun:await_body(ConnPid, StreamRef),
   gun:close(ConnPid),
