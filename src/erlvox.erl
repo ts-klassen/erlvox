@@ -1,6 +1,6 @@
 -module(erlvox).
 
--export([version/1, speakers/1, audio_query/3, synthesis/3, initialize_speaker/2, initialize_speaker/3, is_initialized_speaker/2]).
+-export([version/1, speakers/1, audio_query/3, synthesis/3, cancellable_synthesis/3, initialize_speaker/2, initialize_speaker/3, is_initialized_speaker/2]).
 
 version(Host) ->
   request(Host, get, <<"/version">>).
@@ -50,6 +50,13 @@ synthesis(check, Pid, {Host, Speaker}) ->
 
 synthesis(Host, Speaker, AudioQuery) ->
   Uri = voicevox_uri(<<"/synthesis?">>, [
+    {speaker, Speaker},
+    {<<"enable_interrogative_upspeak">>, true}
+  ]),
+  request(Host, post, {Uri, AudioQuery, audio}).
+
+cancellable_synthesis(Host, Speaker, AudioQuery) ->
+  Uri = voicevox_uri(<<"/cancellable_synthesis?">>, [
     {speaker, Speaker},
     {<<"enable_interrogative_upspeak">>, true}
   ]),
