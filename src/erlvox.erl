@@ -133,7 +133,7 @@ request(throws, {Domain, Port}, post, {Uri, Body, audio}) ->
     true -> HttpBody = jsone:encode(Body)
   end,
   ok = gun:data(ConnPid, StreamRef, fin, HttpBody),
-  {response, nofin, 200, _} = gun:await(ConnPid, StreamRef),
+  {response, nofin, 200, _} = gun:await(ConnPid, StreamRef, 60000),
   {ok, Res} = gun:await_body(ConnPid, StreamRef),
   gun:close(ConnPid),
   Res;
