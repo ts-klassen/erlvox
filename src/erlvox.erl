@@ -21,7 +21,7 @@ synthesis(Hosts, Speaker, AudioQuery) when is_list(Hosts) ->
     {Pid, noAvailableServer} -> {error, noAvailableServer};
     {Pid, Audio} -> {ok, Audio}
   end;
-synthesis(async, Pid, {[], Speaker, AudioQuery, []}) ->
+synthesis(async, Pid, {[], _Speaker, _AudioQuery, []}) ->
   Pid ! {self(), noAvailableServer};
 synthesis(async, Pid, {[], Speaker, AudioQuery, [CheckPid|Pids]}) ->
   receive
@@ -163,4 +163,4 @@ request(throws, Host, post, Uri) ->
   request(throws, Host, post, {Uri, <<"">>}).
 
 shuffle(List) ->
-  [X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- List])].
+  [X||{_,X} <- lists:sort([ {rand:uniform(), N} || N <- List])].
